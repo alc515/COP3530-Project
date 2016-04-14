@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <string>
+#include <queue>
 using namespace std;
 
 struct realm{
@@ -24,8 +25,17 @@ struct realm{
 	int* optimumPowers;
 	//number of incantations needed to reach the other realms
 	int* incantationsNeeded;
-	//whether the realm is capable of reaching the next realm
-	bool feasible;
+	//whether a realm has been visited
+	bool visited;
+//	//whether the realm is capable of reaching the next realm
+//	bool feasible;
+};
+
+struct state{
+	int currentRealm;
+	int nextRealm;
+	int gemCount;
+	int incantationCount;
 };
 
 //finds the optimized powers based on the max number of magi
@@ -129,50 +139,145 @@ int stringCompare(string string1,string string2){
 }
 
 
-void greedyAlgorithm(realm** realms, int startRealm, int endRealm, int numRealms){
+//void greedyAlgorithm(realm* realms, int startRealm, int endRealm, int numRealms){
+//	int currentRealm=startRealm;
+//	int nextRealm=startRealm;
+//	int gemCount=0;
+//	int incantationCount=0;
+//	bool impossible=false;
+//	stack<state> stack;
+//	state s;
+//
+//	//declares every realm unvisited
+//	for(int i=0; i<numRealms; i++){
+//		realms[i].visited=false;
+//	}
+//
+//	while(nextRealm!=endRealm&&!impossible){
+//		//determines which realms can be reached from the current unvisited realm
+//		if(!realms[currentRealm].visited){
+//			for(int i=0; i<numRealms; i++){
+//				if(realms[currentRealm].incantationsNeeded[i]<=realms[currentRealm].maxMagi){
+//					realms[i].feasible=true;
+//				}
+//				else{
+//					realms[i].feasible=false;
+//				}
+//			}
+//			realms[currentRealm].visited=true;
+//		}
+//
+//		//if you can reach the end realm from the current realm
+//		if(realms[endRealm].feasible){
+//			nextRealm=endRealm;
+//		}
+//		//if you have to try to pass through other realms
+//		else{
+//			for(int i=0; i<numRealms; i++){
+//				if(realms[i].feasible&&realms[i].incantationsNeeded[endRealm]<=realms[nextRealm].incantationsNeeded[endRealm]){
+//					nextRealm=i;
+//				}
+//			}
+//		}
+//
+//		//if unable to find a feasible nextRealm
+//		if(currentRealm==nextRealm){
+//			impossible=true;
+//		}
+//
+//		if(!impossible){
+//			s.currentRealm=currentRealm;
+//			s.nextRealm=nextRealm;
+//			s.incantationCount=incantationCount;
+//			s.gemCount=gemCount;
+//			stack.push(s);
+//			//gets the number of gems and incantations needed to move to the next realm
+//			for(int i=0; i<realms[currentRealm].incantationsNeeded[nextRealm]; i++){
+//				gemCount+=realms[currentRealm].optimumPowers[i];
+//				incantationCount++;
+//			}
+//			//the current realm is now the next realm
+//			currentRealm=nextRealm;
+//		}
+//		else if(!stack.empty()){
+//			s=stack.top();
+//			stack.pop();
+//			currentRealm=s.currentRealm;
+//			nextRealm=currentRealm;
+//			gemCount=s.gemCount;
+//			incantationCount=s.incantationCount;
+//			realms[s.nextRealm].feasible=false;
+//			impossible=false;
+//		}
+//	}
+//
+//	//prints the number of incantations and gems if possible
+//	if(impossible){
+//		cout << "IMPOSSIBLE\n";
+//	}
+//	else{
+//		cout << incantationCount << " " << gemCount << endl;
+//	}
+//}
+
+void BFS(realm* realms, int startRealm, int endRealm, int numRealms){
 	int currentRealm=startRealm;
-	int nextRealm=startRealm;
 	int gemCount=0;
 	int incantationCount=0;
-	bool impossible=false;
-	while(nextRealm!=endRealm){
+	int tempGems;
+	int tempIncantations;
+	int minIncantations=0;
+	int minGems=0;
+	bool impossible=true;
+	queue<state> q;
+	state s;
+
+	//pushes intital values onto queue
+	s.currentRealm=currentRealm;
+	s.gemCount=gemCount;
+	s.incantationCount=incantationCount;
+	q.push(s);
+
+	//declares every realm unvisited
+	for(int i=0; i<numRealms; i++){
+		realms[i].visited=false;
+	}
+
+	while(!q.empty()){
+		//gets the front of the queue
+		s=q.front();
+		q.pop();
+		currentRealm=s.currentRealm;
+		gemCount=s.gemCount;
+		incantationCount=s.incantationCount;
+		realms[currentRealm].visited=true;
+
+		//if the currentRealm is the endRealm
+		if(currentRealm==endRealm&&(minIncantations==0||incantationCount<minIncantations)){
+			impossible=false;
+			minGems=gemCount;
+			minIncantations=incantationCount;
+			continue;
+		}
+
 		//determines which realms can be reached from the current realm
 		for(int i=0; i<numRealms; i++){
-			if(realms[currentRealm]->incantationsNeeded[i]<=realms[currentRealm]->maxMagi){
-				realms[i]->feasible=true;
-			}
-			else{
-				realms[i]->feasible=false;
-			}
-		}
-
-		//if you can reach the end realm from the current realm
-		if(realms[endRealm]->feasible){
-			nextRealm=endRealm;
-		}
-		//if you have to try to pass through other realms
-		else{
-			for(int i=0; i<numRealms; i++){
-				if(realms[i]->feasible&&realms[i]->incantationsNeeded[endRealm]<realms[nextRealm]->incantationsNeeded[endRealm]){
-					nextRealm=i;
+			if(!realms[i].visited&&realms[currentRealm].incantationsNeeded[i]<=realms[currentRealm].maxMagi){
+				//resets gems and incantations back to current realms values
+				tempGems=gemCount;
+				tempIncantations=incantationCount;
+				//gets the number of gems and incantations needed to move to the next realm
+				for(int j=0; j<realms[currentRealm].incantationsNeeded[i]; j++){
+					tempGems+=realms[currentRealm].optimumPowers[j];
+					tempIncantations++;
 				}
+				//pushes new realms' values into queue
+				s.gemCount=tempGems;
+				s.incantationCount=tempIncantations;
+				s.currentRealm=i;
+				q.push(s);
 			}
 		}
-
-		//if unable to find a feasible nextRealm
-		if(currentRealm==nextRealm){
-			impossible=true;
-			break;
-		}
-
-		//gets the number of gems and incantations needed to move to the next realm
-		for(int i=0; i<realms[currentRealm]->incantationsNeeded[nextRealm]; i++){
-			gemCount+=realms[currentRealm]->optimumPowers[i];
-			incantationCount++;
-		}
-
-		//the current realm is now the next realm
-		currentRealm=nextRealm;
 	}
 
 	//prints the number of incantations and gems if possible
@@ -180,7 +285,7 @@ void greedyAlgorithm(realm** realms, int startRealm, int endRealm, int numRealms
 		cout << "IMPOSSIBLE\n";
 	}
 	else{
-		cout << incantationCount << " " << gemCount << endl;
+		cout << minIncantations << " " << minGems << endl;
 	}
 }
 
@@ -243,117 +348,11 @@ void messenger(){
 		}
 	}
 
-//	//finds incantations and gems to reach end realm
-//	greedyAlgorithm(&realms, startRealm, endRealm, numRealms);
-//
-//	//finds incantations and gems to return to start realm
-//	greedyAlgorithm(&realms, endRealm, startRealm, numRealms);
+	//finds incantations and gems to reach end realm
+	BFS(realms, startRealm, endRealm, numRealms);
 
-		int currentRealm=startRealm;
-		int nextRealm=startRealm;
-		int gemCount=0;
-		int incantationCount=0;
-		bool impossible=false;
-		while(nextRealm!=endRealm){
-			//determines which realms can be reached from the current realm
-			for(int i=0; i<numRealms; i++){
-				if(realms[currentRealm].incantationsNeeded[i]<=realms[currentRealm].maxMagi){
-					realms[i].feasible=true;
-				}
-				else{
-					realms[i].feasible=false;
-				}
-			}
-
-			//if you can reach the end realm from the current realm
-			if(realms[endRealm].feasible){
-				nextRealm=endRealm;
-			}
-			//if you have to try to pass through other realms
-			else{
-				for(int i=0; i<numRealms; i++){
-					if(realms[i].feasible&&realms[i].incantationsNeeded[endRealm]<realms[nextRealm].incantationsNeeded[endRealm]){
-						nextRealm=i;
-					}
-				}
-			}
-
-			//if unable to find a feasible nextRealm
-			if(currentRealm==nextRealm){
-				impossible=true;
-				break;
-			}
-
-			//gets the number of gems and incantations needed to move to the next realm
-			for(int i=0; i<realms[currentRealm].incantationsNeeded[nextRealm]; i++){
-				gemCount+=realms[currentRealm].optimumPowers[i];
-				incantationCount++;
-			}
-
-			//the current realm is now the next realm
-			currentRealm=nextRealm;
-		}
-
-		//prints the number of incantations and gems if possible
-		if(impossible){
-			cout << "IMPOSSIBLE\n";
-		}
-		else{
-			cout << incantationCount << " " << gemCount << endl;
-		}
-
-		currentRealm=endRealm;
-		nextRealm=endRealm;
-		gemCount=0;
-		incantationCount=0;
-		impossible=false;
-		while(nextRealm!=startRealm){
-			//determines which realms can be reached from the current realm
-			for(int i=0; i<numRealms; i++){
-				if(realms[currentRealm].incantationsNeeded[i]<=realms[currentRealm].maxMagi){
-					realms[i].feasible=true;
-				}
-				else{
-					realms[i].feasible=false;
-				}
-			}
-
-			//if you can reach the end realm from the current realm
-			if(realms[startRealm].feasible){
-				nextRealm=startRealm;
-			}
-			//if you have to try to pass through other realms
-			else{
-				for(int i=0; i<numRealms; i++){
-					if(realms[i].feasible&&realms[i].incantationsNeeded[startRealm]<realms[nextRealm].incantationsNeeded[startRealm]){
-						nextRealm=i;
-					}
-				}
-			}
-
-			//if unable to find a feasible nextRealm
-			if(currentRealm==nextRealm){
-				impossible=true;
-				break;
-			}
-
-			//gets the number of gems and incantations needed to move to the next realm
-			for(int i=0; i<realms[currentRealm].incantationsNeeded[nextRealm]; i++){
-				gemCount+=realms[currentRealm].optimumPowers[i];
-				incantationCount++;
-			}
-
-			//the current realm is now the next realm
-			currentRealm=nextRealm;
-		}
-
-		//prints the number of incantations and gems if possible
-		if(impossible){
-			cout << "IMPOSSIBLE\n";
-		}
-		else{
-			cout << incantationCount << " " << gemCount << endl;
-		}
+	//finds incantations and gems to return to start realm
+	BFS(realms, endRealm, startRealm, numRealms);
 
 	//deletes dynamically allocated memory
 	for(int i=0; i<numRealms; i++){
