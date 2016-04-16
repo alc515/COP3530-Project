@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <queue>
+#include <climits>
 using namespace std;
 
 struct realm{
@@ -25,17 +26,14 @@ struct realm{
 	int* powers;
 	//the optimized powers based on the max number of magi
 	int* optimumPowers;
-	//number of incantations needed to reach the other realms
+	//number of incantations needed to reach the other realms (turned into edges)
 	int* incantationsNeeded;
-//	//whether a realm has been visited
-//	bool visited;
-};
-
-struct state{
-	int currentRealm;
-	int nextRealm;
-	int gemCount;
-	int incantationCount;
+	//whether a realm has been visited
+	bool visited;
+	//holds the current tentativeDistance of a realm (solution incantations)
+	int tentativeDistance;
+	//holds the current tentativeGems of a realm (solution gems)
+	int tentativeGems;
 };
 
 //finds the powers that maximize the number of feasible magi
@@ -113,10 +111,6 @@ void analyzeMagi(realm* r){
 
     //finds the powers for the maximum number of magi
     findOptimumPowers(r);
-
-    for(int i=0; i<r->maxMagi; i++){
-    	cout << r->optimumPowers[i];
-    }
 }
 
 //finds the distances between strings
@@ -167,75 +161,80 @@ int stringCompare(string string1, string string2){
     return answer;
 }
 
-//void BFS(realm* realms, int startRealm, int endRealm, int numRealms){
-//	int currentRealm=startRealm;
-//	int gemCount=0;
-//	int incantationCount=0;
-//	int tempGems;
-//	int tempIncantations;
-//	int minIncantations=0;
-//	int minGems=0;
-//	bool impossible=true;
-//	queue<state> q;
-//	state s;
-//
-//	//pushes intital values onto queue
-//	s.currentRealm=currentRealm;
-//	s.gemCount=gemCount;
-//	s.incantationCount=incantationCount;
-//	q.push(s);
-//
-//	//declares every realm unvisited
-//	for(int i=0; i<numRealms; i++){
-//		realms[i].visited=false;
-//	}
-//
-//	while(!q.empty()){
-//		//gets the front of the queue
-//		s=q.front();
-//		q.pop();
-//		currentRealm=s.currentRealm;
-//		gemCount=s.gemCount;
-//		incantationCount=s.incantationCount;
-//		realms[currentRealm].visited=true;
-//
-//		//if the currentRealm is the endRealm
-//		if(currentRealm==endRealm&&(minIncantations==0||incantationCount<minIncantations)){
-//			impossible=false;
-//			minGems=gemCount;
-//			minIncantations=incantationCount;
-//			continue;
-//		}
-//
-//		//determines which realms can be reached from the current realm
-//		for(int i=0; i<numRealms; i++){
-//			if(!realms[i].visited&&realms[currentRealm].incantationsNeeded[i]<=realms[currentRealm].maxMagi){
-//				//resets gems and incantations back to current realms values
-//				tempGems=gemCount;
-//				tempIncantations=incantationCount;
-//				//gets the number of gems and incantations needed to move to the next realm
-//				for(int j=0; j<realms[currentRealm].incantationsNeeded[i]; j++){
-//					tempGems+=realms[currentRealm].optimumPowers[j];
-//					tempIncantations++;
-//				}
-//				//pushes new realms' values into queue
-//				s.gemCount=tempGems;
-//				s.incantationCount=tempIncantations;
-//				s.currentRealm=i;
-//				q.push(s);
-//			}
-//		}
-//	}
-//
-//	//prints the number of incantations and gems if possible
-//	if(impossible){
-//		cout << "IMPOSSIBLE\n";
-//	}
-//	else{
-//		cout << minIncantations << " " << minGems << endl;
-//	}
-//}
+//declares custom comparator to get smallest tentative distance in queue
+typedef bool (*comp)(realm,realm);
+bool compare(realm a, realm b)
+{
+   return (a.tentativeDistance>b.tentativeDistance);
+}
 
+//implements Dijkstra's algorithm to find incantations and gems to reach endRealm
+void traverseRealms(realm* realms, int startRealm, int endRealm, int numRealms){
+	int dist;
+	int gems;
+	//initializes impossible to true
+	bool impossible=true;
+
+	//declares each realm unvisited and declares tentative distances as infinity and tentative gems as 0
+	for(int i=0; i<numRealms; i++){
+		realms[i].visited=false;
+		realms[i].tentativeDistance=INT_MAX;
+		realms[i].tentativeGems=0;
+	}
+	//declares tentative distance for first realm as 0
+	realms[startRealm].tentativeDistance=0;
+
+	//declares priority queue for Dijkstra's Algorithm
+	priority_queue<realm,vector<realm>,comp> q(compare);
+	q.push(realms[startRealm]);
+
+	//loops and updates tentative distances until endRealm is found
+	while(!q.empty()){
+		//pop realm with smallest tentative distance and mark it visited
+		realm r=q.top();
+		q.pop();
+		//get next realm
+		if(r.visited){
+			continue;
+		}
+		r.visited=true;
+
+		//base case (realm popped is endRealm)
+		if(r.charm==realms[endRealm].charm){
+			impossible=false;
+			cout << r.tentativeDistance << " " << r.tentativeGems << endl;
+			break;
+		}
+
+		for(int i=0; i<numRealms; i++){
+			//if the realm cannot be reached from the current realm
+			if(r.incantationsNeeded[i]==-1){
+				continue;
+			}
+
+			//gets the value of the distance to reach the next realm and compares it to the current tentative distance
+			dist=r.tentativeDistance+r.incantationsNeeded[i];
+			if(dist<realms[i].tentativeDistance){
+				//updates tentative distance
+				realms[i].tentativeDistance=dist;
+
+				//updates tentative gems
+				gems=r.tentativeGems;
+				for(int j=0; j<r.incantationsNeeded[i]; j++){
+					gems+=r.optimumPowers[j];
+				}
+				realms[i].tentativeGems=gems;
+				q.push(realms[i]);
+			}
+		}
+	}
+	//if no path was found
+	if(impossible){
+		cout << "IMPOSSIBLE\n";
+	}
+}
+
+//main program
 void messenger(){
 	//gets the number of realms and creates an array to store them in
 	int numRealms;
@@ -280,7 +279,7 @@ void messenger(){
 		analyzeMagi(&realms[i]);
 	}
 
-	//declares the array needed to hold the incantations needed to reach each realm
+	//declares the arrays used to hold the incantationsNeeded to reach each realm
 	for(int i=0; i<numRealms; i++){
 		realms[i].incantationsNeeded = new int[numRealms];
 	}
@@ -293,11 +292,20 @@ void messenger(){
 		}
 	}
 
-//	//finds incantations and gems to reach end realm
-//	BFS(realms, startRealm, endRealm, numRealms);
-//
-//	//finds incantations and gems to return to start realm
-//	BFS(realms, endRealm, startRealm, numRealms);
+	//checks the incantationsNeeded against the maxMagi to determine if edge is possible
+	for(int i=0; i<numRealms; i++){
+		for(int j=0; j<numRealms; j++){
+			if(i==j||realms[i].incantationsNeeded[j]>realms[i].maxMagi){
+				realms[i].incantationsNeeded[j]=-1;
+			}
+		}
+	}
+
+	//finds incantations and gems to reach end realm
+	traverseRealms(realms, startRealm, endRealm, numRealms);
+
+	//finds incantations and gems to return to start realm
+	traverseRealms(realms, endRealm, startRealm, numRealms);
 
 	//deletes dynamically allocated memory
 	for(int i=0; i<numRealms; i++){
