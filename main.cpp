@@ -1,12 +1,6 @@
-/*
- * main.cpp
- *
- *  Created on: Apr 11, 2016
- *      Author: Kyle
- */
-
 #include <iostream>
 #include <string>
+#include <list>
 #include <queue>
 #include <climits>
 using namespace std;
@@ -28,6 +22,8 @@ struct realm{
 	int* optimumPowers;
 	//number of incantations needed to reach the other realms (turned into edges)
 	int* incantationsNeeded;
+	//the feasible edges to other realms
+	list<int> edges;
 	//whether a realm has been visited
 	bool visited;
 	//holds the current tentativeDistance of a realm (solution incantations)
@@ -172,6 +168,8 @@ bool compare(realm a, realm b)
 void traverseRealms(realm* realms, int startRealm, int endRealm, int numRealms){
 	int dist;
 	int gems;
+	realm r;
+	int nextRealm;
 	//initializes impossible to true
 	bool impossible=true;
 
@@ -191,9 +189,10 @@ void traverseRealms(realm* realms, int startRealm, int endRealm, int numRealms){
 	//loops and updates tentative distances until endRealm is found
 	while(!q.empty()){
 		//pop realm with smallest tentative distance and mark it visited
-		realm r=q.top();
+		r=q.top();
 		q.pop();
-		//get next realm
+
+		//check if realm was already visited
 		if(r.visited){
 			continue;
 		}
@@ -206,25 +205,25 @@ void traverseRealms(realm* realms, int startRealm, int endRealm, int numRealms){
 			break;
 		}
 
-		for(int i=0; i<numRealms; i++){
-			//if the realm cannot be reached from the current realm
-			if(r.incantationsNeeded[i]==-1){
-				continue;
-			}
+		for(list<int>::iterator iter=r.edges.begin(); iter!=r.edges.end(); iter++){
+			//gets the nextRealm from the edges list
+			nextRealm=*iter;
 
 			//gets the value of the distance to reach the next realm and compares it to the current tentative distance
-			dist=r.tentativeDistance+r.incantationsNeeded[i];
-			if(dist<realms[i].tentativeDistance){
+			dist=r.tentativeDistance+r.incantationsNeeded[nextRealm];
+			if(dist<realms[nextRealm].tentativeDistance){
 				//updates tentative distance
-				realms[i].tentativeDistance=dist;
+				realms[nextRealm].tentativeDistance=dist;
 
 				//updates tentative gems
 				gems=r.tentativeGems;
-				for(int j=0; j<r.incantationsNeeded[i]; j++){
+				for(int j=0; j<r.incantationsNeeded[nextRealm]; j++){
 					gems+=r.optimumPowers[j];
 				}
-				realms[i].tentativeGems=gems;
-				q.push(realms[i]);
+				realms[nextRealm].tentativeGems=gems;
+
+				//pushes nextRealm onto the queue
+				q.push(realms[nextRealm]);
 			}
 		}
 	}
@@ -295,8 +294,8 @@ void messenger(){
 	//checks the incantationsNeeded against the maxMagi to determine if edge is possible
 	for(int i=0; i<numRealms; i++){
 		for(int j=0; j<numRealms; j++){
-			if(i==j||realms[i].incantationsNeeded[j]>realms[i].maxMagi){
-				realms[i].incantationsNeeded[j]=-1;
+			if(i!=j&&realms[i].incantationsNeeded[j]<=realms[i].maxMagi){
+				realms[i].edges.push_back(j);
 			}
 		}
 	}
